@@ -5,6 +5,8 @@ import os
 import glob
 import json
 import sys
+import shutil
+import uuid
 
 class BeatSyncEngine:
     def __init__(self, project_dir):
@@ -13,6 +15,7 @@ class BeatSyncEngine:
         self.audio_file = os.path.join(project_dir, 'dezko.mp3')
         self.output_width = 1080
         self.output_height = 1920
+        self.temp_dir = os.path.join(project_dir, 'temp_render')
         
     def parse_beats(self):
         """Parse beats.xml to get list of (start_time, duration) for each cut."""
@@ -65,157 +68,187 @@ class BeatSyncEngine:
             print(f"Error getting duration for {video_path}: {e}")
             return 0.0
 
-    def render(self, assets_dir, output_file):
-        print(f"Parsing beats from {self.beats_file}...")
-        cuts, total_duration = self.parse_beats()
-        print(f"Found {len(cuts)} cuts. Total duration: {total_duration:.2f}s")
-        
-        # Get assets
-        asset_files = sorted(glob.glob(os.path.join(assets_dir, "*")))
-        valid_extensions = {'.mp4', '.mov', '.avi', '.mkv'}
-        asset_files = [f for f in asset_files if os.path.splitext(f)[1].lower() in valid_extensions]
-        
-        if not asset_files:
-            raise ValueError(f"No video assets found in {assets_dir}")
-            
-        print(f"Found {len(asset_files)} assets.")
-        
-        # Get asset durations
-        assets = []
-        for f in asset_files:
-            dur = self.get_video_duration(f)
-            if dur > 0:
-                assets.append({'path': f, 'duration': dur})
-            else:
-                print(f"Skipping invalid asset: {f}")
-        
-        if not assets:
-            raise ValueError("No valid assets available.")
+    def normalize_asset(self, input_path, output_path):
+        """Normalize input video to standard format."""
+        print(f"Normalizing {input_path} to {output_path}...")
+        cmd = [
+            'ffmpeg', '-y',
+            '-i', input_path,
+            '-vf', f"fps=30,scale={self.output_width}:{self.output_height}:force_original_aspect_ratio=increase,crop={self.output_width}:{self.output_height},format=yuv420p,setsar=1",
+            '-c:v', 'libx264',
+            '-crf', '18',
+            '-preset', 'fast',
+            '-g', '1', # All-Intra for frame-accurate cuts
+            output_path
+        ]
+        subprocess.run(cmd, check=True)
 
-        # Assign assets to cuts
-        filter_complex = []
-        inputs = []
-        
-        for i, asset in enumerate(assets):
-            inputs.extend(['-i', asset['path']])
+    def create_clip(self, source_path, start_time, duration_frames, output_path):
+        """Extract a clip from the normalized source."""
+        # Use -frames:v for exact frame count extraction
+        cmd = [
+            'ffmpeg', '-y',
+            '-ss', str(start_time),
+            '-i', source_path,
+            '-frames:v', str(duration_frames),
+            '-c', 'copy', # Fast copy since source is already normalized
+            output_path
+        ]
+        subprocess.run(cmd, check=True)
+
+    def render(self, assets_dir, output_file):
+        # Create temp dir
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+        os.makedirs(self.temp_dir)
+
+        try:
+            print(f"Parsing beats from {self.beats_file}...")
+            cuts, total_duration = self.parse_beats()
+            print(f"Found {len(cuts)} cuts. Total duration: {total_duration:.2f}s")
             
-        # Add audio input (last input)
-        inputs.extend(['-i', self.audio_file])
-        audio_index = len(assets)
-        
-        concat_inputs = []
-        
-        # SYNC FIX: Quantize everything to 30fps frames
-        fps = 30
-        current_frame = 0
-        
-        # SMART ASSET SELECTION
-        # Track usage: { asset_index: [(start_sec, end_sec), ...] }
-        usage_map = {i: [] for i in range(len(assets))}
-        
-        print("Generating cut list with Smart Asset Selection...")
-        for i, cut in enumerate(cuts):
-            # Calculate duration in frames
-            target_end_time = cut['start'] + cut['duration']
-            target_end_frame = int(target_end_time * fps)
-            duration_frames = target_end_frame - current_frame
-            current_frame = target_end_frame
+            # Get assets
+            asset_files = sorted(glob.glob(os.path.join(assets_dir, "*")))
+            valid_extensions = {'.mp4', '.mov', '.avi', '.mkv'}
+            asset_files = [f for f in asset_files if os.path.splitext(f)[1].lower() in valid_extensions]
             
-            if duration_frames <= 0:
-                continue
+            if not asset_files:
+                raise ValueError(f"No video assets found in {assets_dir}")
                 
-            duration_sec = duration_frames / fps
+            print(f"Found {len(asset_files)} assets.")
             
-            # Find an asset and a time slot
-            # Strategy:
-            # 1. Shuffle assets to randomize selection
-            # 2. For each asset, try to find a random valid slot that doesn't overlap with existing usage
-            # 3. If no non-overlapping slot found in ANY asset, pick a random one and allow overlap
+            # 1. Normalize Assets
+            # We only need to normalize assets that we actually use, but for simplicity and random access,
+            # let's normalize all of them or do it on demand. 
+            # To save time, let's normalize all found assets first.
             
-            candidate_indices = list(range(len(assets)))
-            random.shuffle(candidate_indices)
+            normalized_assets = {} # { original_path: normalized_path }
             
-            selected_asset_idx = -1
-            selected_start_time = -1
+            for i, asset_path in enumerate(asset_files):
+                norm_name = f"norm_{i}.mp4"
+                norm_path = os.path.join(self.temp_dir, norm_name)
+                self.normalize_asset(asset_path, norm_path)
+                normalized_assets[asset_path] = {
+                    'path': norm_path,
+                    'duration': self.get_video_duration(norm_path)
+                }
+
+            # 2. Generate Cut List with Smart Selection
+            # This logic is similar to previous, but now we select from normalized assets
             
-            # Try to find a clean slot
-            for idx in candidate_indices:
-                asset = assets[idx]
-                max_start = asset['duration'] - duration_sec - 0.1
-                if max_start <= 0: continue
+            fps = 30
+            current_frame = 0
+            usage_map = {path: [] for path in normalized_assets}
+            clip_files = [] # List of clip filenames for concat
+            
+            print("Generating clips...")
+            
+            for i, cut in enumerate(cuts):
+                # Calculate duration in frames
+                target_end_time = cut['start'] + cut['duration']
+                target_end_frame = int(target_end_time * fps)
+                duration_frames = target_end_frame - current_frame
+                current_frame = target_end_frame
                 
-                # Try N times to find a slot in this asset
-                for _ in range(10):
-                    t = random.uniform(0, max_start)
-                    t_end = t + duration_sec
+                if duration_frames <= 0:
+                    continue
                     
-                    # Check overlap
-                    overlaps = False
-                    for (u_start, u_end) in usage_map[idx]:
-                        # Check intersection: (StartA <= EndB) and (EndA >= StartB)
-                        if (t <= u_end) and (t_end >= u_start):
-                            overlaps = True
+                duration_sec = duration_frames / fps
+                
+                # Find an asset and time slot
+                candidate_paths = list(normalized_assets.keys())
+                random.shuffle(candidate_paths)
+                
+                selected_asset_path = None
+                selected_start_time = -1
+                
+                # Try to find a clean slot
+                for path in candidate_paths:
+                    asset_info = normalized_assets[path]
+                    max_start = asset_info['duration'] - duration_sec - 0.1
+                    if max_start <= 0: continue
+                    
+                    for _ in range(10):
+                        t = random.uniform(0, max_start)
+                        # Align t to frame boundary
+                        t_frame = int(t * fps)
+                        t = t_frame / fps
+                        
+                        t_end = t + duration_sec
+                        
+                        overlaps = False
+                        for (u_start, u_end) in usage_map[path]:
+                            if (t <= u_end) and (t_end >= u_start):
+                                overlaps = True
+                                break
+                        
+                        if not overlaps:
+                            selected_asset_path = path
+                            selected_start_time = t
                             break
                     
-                    if not overlaps:
-                        selected_asset_idx = idx
-                        selected_start_time = t
+                    if selected_asset_path:
                         break
                 
-                if selected_asset_idx != -1:
-                    break
+                # Fallback
+                if not selected_asset_path:
+                    print(f"Warning: Could not find non-overlapping slot for cut {i}. Reusing content.")
+                    selected_asset_path = random.choice(candidate_paths)
+                    asset_info = normalized_assets[selected_asset_path]
+                    max_start = asset_info['duration'] - duration_sec - 0.1
+                    # Align random start to frame
+                    t = random.uniform(0, max(0, max_start))
+                    t_frame = int(t * fps)
+                    selected_start_time = t_frame / fps
+                
+                # Record usage
+                usage_map[selected_asset_path].append((selected_start_time, selected_start_time + duration_sec))
+                
+                # Create Clip
+                clip_name = f"clip_{i:04d}.mp4"
+                clip_path = os.path.join(self.temp_dir, clip_name)
+                print(f"Creating clip {i+1}/{len(cuts)}: {clip_name} from {os.path.basename(selected_asset_path)} at {selected_start_time:.2f}s ({duration_frames} frames)")
+                self.create_clip(normalized_assets[selected_asset_path]['path'], selected_start_time, duration_frames, clip_path)
+                clip_files.append(clip_path)
+
+            # 3. Concat Clips
+            concat_list_path = os.path.join(self.temp_dir, 'clips.txt')
+            with open(concat_list_path, 'w') as f:
+                for clip_path in clip_files:
+                    # FFmpeg concat requires absolute paths or relative safe paths. 
+                    # Escaping backslashes for Windows might be needed.
+                    safe_path = clip_path.replace('\\', '/')
+                    f.write(f"file '{safe_path}'\n")
             
-            # Fallback: If we couldn't find a clean slot in ANY asset
-            if selected_asset_idx == -1:
-                print(f"Warning: Could not find non-overlapping slot for cut {i}. Reusing content.")
-                selected_asset_idx = random.choice(candidate_indices)
-                asset = assets[selected_asset_idx]
-                max_start = asset['duration'] - duration_sec - 0.1
-                selected_start_time = random.uniform(0, max(0, max_start))
+            print(f"Concatenating {len(clip_files)} clips...")
             
-            # Record usage
-            usage_map[selected_asset_idx].append((selected_start_time, selected_start_time + duration_sec))
+            # Final concat command
+            cmd = [
+                'ffmpeg', '-y',
+                '-f', 'concat',
+                '-safe', '0',
+                '-i', concat_list_path,
+                '-i', self.audio_file,
+                '-c:v', 'copy', # Copy video stream (fast!)
+                '-c:a', 'aac',  # Encode audio
+                '-map', '0:v',
+                '-map', '1:a',
+                '-shortest', # Stop when shortest input ends (video should match audio roughly)
+                output_file
+            ]
             
-            # Calculate start/end frames
-            start_frame = int(selected_start_time * fps)
-            end_frame = start_frame + duration_frames
-            
-            # Create filter chain
-            filter_cmd = (
-                f"[{selected_asset_idx}:v]"
-                f"fps={fps},"
-                f"scale={self.output_width}:{self.output_height}:force_original_aspect_ratio=increase,"
-                f"crop={self.output_width}:{self.output_height},"
-                f"format=yuv420p,"
-                f"setsar=1,"
-                f"trim=start_frame={start_frame}:end_frame={end_frame},"
-                f"setpts=PTS-STARTPTS"
-                f"[v{i}]"
-            )
-            filter_complex.append(filter_cmd)
-            concat_inputs.append(f"[v{i}]")
-            
-        # Concat filter
-        concat_cmd = f"{''.join(concat_inputs)}concat=n={len(concat_inputs)}:v=1:a=0[outv]"
-        filter_complex.append(concat_cmd)
-        
-        # Full command
-        cmd = ['ffmpeg', '-y']
-        cmd.extend(inputs)
-        cmd.extend(['-filter_complex', ";".join(filter_complex)])
-        cmd.extend(['-map', '[outv]', '-map', f'{audio_index}:a'])
-        # Force output frame rate
-        cmd.extend(['-r', str(fps)])
-        cmd.extend(['-c:v', 'libx264', '-pix_fmt', 'yuv420p'])
-        cmd.append(output_file)
-        
-        print(f"Rendering {len(concat_inputs)} cuts to {output_file}...")
-        
-        with open(os.path.join(self.project_dir, 'render_cmd.txt'), 'w') as f:
-            f.write(" ".join(cmd))
-            
-        subprocess.run(cmd, check=True)
-        print("Render complete!")
+            # Save command for debugging
+            with open(os.path.join(self.project_dir, 'render_cmd.txt'), 'w') as f:
+                f.write(" ".join(cmd))
+                
+            subprocess.run(cmd, check=True)
+            print("Render complete!")
+
+        finally:
+            # Cleanup
+            if os.path.exists(self.temp_dir):
+                print("Cleaning up temp files...")
+                shutil.rmtree(self.temp_dir)
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
