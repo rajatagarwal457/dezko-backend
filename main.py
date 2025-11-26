@@ -59,6 +59,10 @@ async def get_songs():
     """Get list of available songs"""
     return AVAILABLE_SONGS
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 @app.post("/upload")
 async def upload_files(files: List[UploadFile] = File(...)):
     # Create a unique session ID for this batch? 
