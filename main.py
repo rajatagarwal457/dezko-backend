@@ -65,18 +65,23 @@ async def health_check():
 
 @app.post("/upload")
 async def upload_files(files: List[UploadFile] = File(...)):
-    # Create a unique session ID for this batch? 
-    # For now, let's just clear uploads or use a specific folder per request if we want multi-user.
-    # To keep it simple for this MVP: Just save to uploads/
+    # Generate a unique session ID
+    session_id = str(uuid.uuid4())
+    session_dir = os.path.join(UPLOAD_DIR, session_id)
+    os.makedirs(session_dir, exist_ok=True)
     
     saved_files = []
     for file in files:
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        file_path = os.path.join(session_dir, file.filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         saved_files.append(file.filename)
         
-    return {"message": f"Uploaded {len(saved_files)} files", "files": saved_files}
+    return {
+        "message": f"Uploaded {len(saved_files)} files", 
+        "files": saved_files, 
+        "session_id": session_id
+    }
 
 from fastapi.concurrency import run_in_threadpool
 
@@ -84,6 +89,7 @@ from typing import Optional
 
 class GenerateRequest(BaseModel):
     song_id: Optional[str] = "dezko"
+    session_id: str
 
 @app.post("/generate")
 async def generate_video(request: GenerateRequest, background_tasks: BackgroundTasks):
@@ -114,13 +120,18 @@ async def generate_video(request: GenerateRequest, background_tasks: BackgroundT
         engine.audio_file = audio_path
         engine.beats_file = beats_path
         
+        # Verify session directory exists
+        session_dir = os.path.join(UPLOAD_DIR, request.session_id)
+        if not os.path.exists(session_dir):
+            raise HTTPException(status_code=404, detail="Session not found or expired")
+
         # Output file
         output_filename = f"render_{uuid.uuid4().hex[:8]}.mp4"
         output_path = os.path.join(OUTPUT_DIR, output_filename)
         
         # Add render task to background
-        print(f"Queuing render to {output_path} with song {song['name']}")
-        background_tasks.add_task(engine.render, UPLOAD_DIR, output_path)
+        print(f"Queuing render to {output_path} with song {song['name']} for session {request.session_id}")
+        background_tasks.add_task(engine.render, session_dir, output_path)
         
         return {
             "status": "generating", 
