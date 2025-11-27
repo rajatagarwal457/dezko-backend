@@ -118,12 +118,12 @@ async def generate_video(request: GenerateRequest, background_tasks: BackgroundT
         output_filename = f"render_{uuid.uuid4().hex[:8]}.mp4"
         output_path = os.path.join(OUTPUT_DIR, output_filename)
         
-        # Run in threadpool to avoid blocking the event loop
-        print(f"Starting render to {output_path} with song {song['name']}")
-        await run_in_threadpool(engine.render, UPLOAD_DIR, output_path)
+        # Add render task to background
+        print(f"Queuing render to {output_path} with song {song['name']}")
+        background_tasks.add_task(engine.render, UPLOAD_DIR, output_path)
         
         return {
-            "status": "success", 
+            "status": "generating", 
             "video_url": f"/outputs/{output_filename}",
             "filename": output_filename
         }
