@@ -8,6 +8,7 @@ import os
 import sys
 import uuid
 import glob
+import datetime
 from typing import List
 
 # Import engine from current directory
@@ -149,8 +150,32 @@ async def generate_video(request: GenerateRequest, background_tasks: BackgroundT
 async def clear_uploads():
     files = glob.glob(os.path.join(UPLOAD_DIR, "*"))
     for f in files:
-        os.remove(f)
+        # Don't delete directories (session folders) yet, or handle recursively
+        if os.path.isfile(f):
+            os.remove(f)
     return {"message": "Uploads cleared"}
+
+class ErrorLog(BaseModel):
+    error: str
+
+@app.post("/error")
+async def log_error(error_log: ErrorLog):
+    try:
+        errors_dir = os.path.join(current_dir, "errors")
+        os.makedirs(errors_dir, exist_ok=True)
+        
+        log_file = os.path.join(errors_dir, "error_log.txt")
+        
+        timestamp = datetime.datetime.now().isoformat()
+        log_entry = f"[{timestamp}] {error_log.error}\n"
+        
+        with open(log_file, "a") as f:
+            f.write(log_entry)
+            
+        return {"message": "Error logged successfully"}
+    except Exception as e:
+        print(f"Failed to log error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to log error")
 
 if __name__ == "__main__":
     import uvicorn
