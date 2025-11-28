@@ -131,6 +131,7 @@ async def generate_video(request: GenerateRequest, background_tasks: BackgroundT
 
         # Output file
         output_filename = f"render_{uuid.uuid4().hex[:8]}.mp4"
+        output_path = os.path.join(OUTPUT_DIR, output_filename)
         
         # Add render task to background
         print(f"Queuing render to {output_path} with song {song['name']} for session {request.session_id}")
@@ -146,37 +147,6 @@ async def generate_video(request: GenerateRequest, background_tasks: BackgroundT
     except Exception as e:
         import traceback
         raise HTTPException(status_code=404, detail=f"{str(e)}")
-        
-        # Initialize engine with current dir (where beats.xml is)
-        engine = BeatSyncEngine(current_dir)
-        # Override the audio and beats file for this song
-        engine.audio_file = audio_path
-        engine.beats_file = beats_path
-        
-        # Verify session directory exists
-        session_dir = os.path.join(UPLOAD_DIR, request.session_id)
-        if not os.path.exists(session_dir):
-            raise HTTPException(status_code=404, detail="Session not found or expired")
-
-        # Output file
-        output_filename = f"render_{uuid.uuid4().hex[:8]}.mp4"
-        output_path = os.path.join(OUTPUT_DIR, output_filename)
-        
-        # Add render task to background
-        print(f"Queuing render to {output_path} with song {song['name']} for session {request.session_id}")
-        background_tasks.add_task(engine.render, session_dir, output_path)
-        
-        return {
-            "status": "generating", 
-            "video_url": f"/outputs/{output_filename}",
-            "filename": output_filename
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/clear")
 async def clear_uploads():

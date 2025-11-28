@@ -247,9 +247,10 @@ class BeatSyncEngine:
             with open(os.path.join(self.project_dir, 'render_cmd.txt'), 'w') as f:
                 f.write(" ".join(cmd))
             
+            
+            subprocess.run(cmd, check=True)
             s3 = boto3.client('s3')
             s3.upload_file(output_file, 'dezko', f"videos/{os.path.basename(output_file)}")
-            subprocess.run(cmd, check=True)
             print("Render complete!")
 
         finally:
