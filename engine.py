@@ -7,6 +7,7 @@ import json
 import sys
 import shutil
 import uuid
+import boto3
 
 class BeatSyncEngine:
     def __init__(self, project_dir):
@@ -242,7 +243,9 @@ class BeatSyncEngine:
             # Save command for debugging
             with open(os.path.join(self.project_dir, 'render_cmd.txt'), 'w') as f:
                 f.write(" ".join(cmd))
-                
+            
+            s3 = boto3.client('s3')
+            s3.upload_file(output_file, 'dezko', f"videos/{os.path.basename(output_file)}")
             subprocess.run(cmd, check=True)
             print("Render complete!")
 
