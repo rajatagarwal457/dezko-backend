@@ -145,7 +145,7 @@ async def generate_video(request: GenerateRequest, background_tasks: BackgroundT
         raise
     except Exception as e:
         import traceback
-        raise HTTPException(status_code=404, detail=f"Beats file '{song['beatsFile']}' not found")
+        raise HTTPException(status_code=404, detail=f"{str(e)}")
         
         # Initialize engine with current dir (where beats.xml is)
         engine = BeatSyncEngine(current_dir)
