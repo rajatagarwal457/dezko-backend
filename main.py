@@ -10,6 +10,9 @@ import uuid
 import glob
 import datetime
 from typing import List
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Import engine from current directory
 from engine import BeatSyncEngine
@@ -110,10 +113,10 @@ async def generate_video(request: GenerateRequest, background_tasks: BackgroundT
         audio_path = os.path.join(current_dir, song["audioFile"])
         beats_path = os.path.join(current_dir, song["beatsFile"])
         
-        if not os.path.exists(audio_path):
-            raise HTTPException(status_code=404, detail=f"Audio file '{song['audioFile']}' not found")
-        if not os.path.exists(beats_path):
-            raise HTTPException(status_code=404, detail=f"Beats file '{song['beatsFile']}' not found")
+        # if not os.path.exists(audio_path):
+        #     raise HTTPException(status_code=404, detail=f"Audio file '{song['audioFile']}' not found")
+        # if not os.path.exists(beats_path):
+        #     raise HTTPException(status_code=404, detail=f"Beats file '{song['beatsFile']}' not found")
         
         # Initialize engine with current dir (where beats.xml is)
         engine = BeatSyncEngine(current_dir)
