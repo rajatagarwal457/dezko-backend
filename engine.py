@@ -8,6 +8,9 @@ import sys
 import shutil
 import uuid
 import boto3
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class BeatSyncEngine:
     def __init__(self, project_dir):
