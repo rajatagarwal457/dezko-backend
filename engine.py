@@ -258,6 +258,9 @@ class BeatSyncEngine:
             if os.path.exists(self.temp_dir):
                 print("Cleaning up temp files...")
                 shutil.rmtree(self.temp_dir)
+            if os.path.exists(assets_dir):
+                print("Cleaning up assets...")
+                shutil.rmtree(assets_dir)
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:

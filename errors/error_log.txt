@@ -1,0 +1,16 @@
+[2025-11-29T22:24:24.175364] Failed to fetch
+[2025-11-29T22:26:25.551577] Failed to fetch
+[2025-11-29T22:27:26.101463] Failed to fetch
+[2025-11-29T22:30:44.973261] Failed to fetch
+[2025-11-29T22:31:02.227521] Failed to fetch
+[2025-11-29T22:37:06.455273] Failed to fetch
+[2025-11-29T22:39:36.504902] 'GenerateRequest' object has no attribute 'fileNames'
+[2025-11-29T22:41:19.051334] 'GenerateRequest' object has no attribute 'fileNames'
+[2025-11-29T22:42:13.391614] [object Object]
+[2025-11-29T22:43:17.263389] 'GenerateRequest' object has no attribute 'sessionId'
+[2025-11-29T22:43:29.735876] [object Object]
+[2025-11-29T22:44:42.929243] Failed to get upload URL: Unprocessable Entity
+[2025-11-29T22:45:03.930043] 'GenerateRequest' object has no attribute 'session_id'
+[2025-11-29T22:46:16.727594] [Errno 2] No such file or directory: 'C:\\stuff\\code\\dezko-backend\\uploads\\user_35edKfmzxnIrjGjNphuG1OmNi6i-d7c99bec-0546-4039-9f9f-f29a22356740\\1.mp4'
+[2025-11-29T22:47:07.998220] [Errno 2] No such file or directory: 'C:\\stuff\\code\\dezko-backend\\uploads\\user_35edKfmzxnIrjGjNphuG1OmNi6i-d18906fe-f207-4564-8a05-8dd619ccacd1\\1.mp4'
+[2025-11-29T22:49:28.812353] Session not found or expired

@@ -11,6 +11,9 @@ import glob
 import datetime
 from typing import List
 from dotenv import load_dotenv
+import boto3
+import requests
+from botocore.config import Config
 
 load_dotenv()
 
@@ -33,7 +36,7 @@ UPLOAD_DIR = os.path.join(current_dir, "uploads")
 OUTPUT_DIR = os.path.join(current_dir, "outputs")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-
+BUCKET_NAME = os.getenv("BUCKET_NAME")
 # Mount outputs for static access
 app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 
@@ -67,25 +70,7 @@ async def get_songs():
 async def health_check():
     return {"status": "ok"}
 
-@app.post("/upload")
-async def upload_files(files: List[UploadFile] = File(...)):
-    # Generate a unique session ID
-    session_id = str(uuid.uuid4())
-    session_dir = os.path.join(UPLOAD_DIR, session_id)
-    os.makedirs(session_dir, exist_ok=True)
-    
-    saved_files = []
-    for file in files:
-        file_path = os.path.join(session_dir, file.filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        saved_files.append(file.filename)
-        
-    return {
-        "message": f"Uploaded {len(saved_files)} files", 
-        "files": saved_files, 
-        "session_id": session_id
-    }
+
 
 from fastapi.concurrency import run_in_threadpool
 
@@ -93,7 +78,29 @@ from typing import Optional
 
 class GenerateRequest(BaseModel):
     song_id: Optional[str] = "dezko"
-    session_id: str
+    sessionId: str
+    fileNames: List[str]
+
+class UploadRequest(BaseModel):
+    sessionId: str
+    filename: str
+    content_type: str
+
+@app.post("/get-upload-url")
+async def get_upload_url(request: UploadRequest):
+    client_config = Config(
+        s3={'use_accelerate_endpoint': True}
+    )
+
+    s3_client = boto3.client('s3', config=client_config)
+    key = f"uploads/{request.sessionId}/{request.filename}"
+    
+    url = s3_client.generate_presigned_url(
+        'put_object',
+        Params={'Bucket': BUCKET_NAME, 'Key': key, 'ContentType': request.content_type},
+        ExpiresIn=3600
+    )
+    return {"upload_url": url, "key": key}
 
 @app.post("/generate")
 async def generate_video(request: GenerateRequest, background_tasks: BackgroundTasks):
@@ -123,9 +130,23 @@ async def generate_video(request: GenerateRequest, background_tasks: BackgroundT
         # Override the audio and beats file for this song
         engine.audio_file = audio_path
         engine.beats_file = beats_path
-        
+        upload_path = request.sessionId
+        os.mkdir(os.path.join(UPLOAD_DIR, upload_path))
+        # download raw footage from s3 via cloudfront
+        for file in request.fileNames:
+            try:
+                print("Downloading", file)
+                url = f"https://dsfvy2cdoas23.cloudfront.net/uploads/{request.sessionId}/{file}"
+                print("Downloading from", url)
+                response = requests.get(url)
+                with open(os.path.join(UPLOAD_DIR, upload_path, file), "wb") as f:
+                    f.write(response.content)
+                    print("Downloaded", file)
+            except Exception as e:
+                print("Failed to download", file, e)
+
         # Verify session directory exists
-        session_dir = os.path.join(UPLOAD_DIR, request.session_id)
+        session_dir = os.path.join(UPLOAD_DIR, request.sessionId)
         if not os.path.exists(session_dir):
             raise HTTPException(status_code=404, detail="Session not found or expired")
 
@@ -134,7 +155,7 @@ async def generate_video(request: GenerateRequest, background_tasks: BackgroundT
         output_path = os.path.join(OUTPUT_DIR, output_filename)
         
         # Add render task to background
-        print(f"Queuing render to {output_path} with song {song['name']} for session {request.session_id}")
+        print(f"Queuing render to {output_path} with song {song['name']} for session {request.sessionId}")
         background_tasks.add_task(engine.render, session_dir, output_path)
         
         return {
