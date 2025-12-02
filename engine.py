@@ -247,8 +247,11 @@ class BeatSyncEngine:
             with open(os.path.join(self.project_dir, 'render_cmd.txt'), 'w') as f:
                 f.write(" ".join(cmd))
             
-            
+            os.chdir("./outputs")
+            os.rename(os.path.basename(output_file), os.path.basename(output_file) + "_temp.mp4")
+            cmd = ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_list_path, '-i', f"{os.path.basename(output_file)}_temp.mp4", '-i', '../Vireo.mp4', '-c', 'copy', f'{os.path.basename(output_file)}'] 
             subprocess.run(cmd, check=True)
+            os.chdir("../")
             s3 = boto3.client('s3')
             s3.upload_file(output_file, 'dezko', f"videos/{os.path.basename(output_file)}")
             print("Render complete!")
