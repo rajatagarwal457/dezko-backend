@@ -1,0 +1,21 @@
+<?xml version="1.0" ?>
+<BeatData>
+  <Metadata>
+    <Duration>8.045714285714286</Duration>
+    <TotalBeats>11</TotalBeats>
+    <BeatsPerSecond>1.3671875</BeatsPerSecond>
+  </Metadata>
+  <Beats>
+    <Beat index="0" time="1.146"/>
+    <Beat index="1" time="1.772"/>
+    <Beat index="2" time="2.398"/>
+    <Beat index="3" time="2.996"/>
+    <Beat index="4" time="3.645"/>
+    <Beat index="5" time="4.266"/>
+    <Beat index="6" time="4.878"/>
+    <Beat index="7" time="5.493"/>
+    <Beat index="8" time="6.145"/>
+    <Beat index="9" time="6.751"/>
+    <Beat index="10" time="7.387"/>
+  </Beats>
+</BeatData>

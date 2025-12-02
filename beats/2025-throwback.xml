@@ -1,0 +1,41 @@
+<?xml version="1.0" ?>
+<BeatData>
+  <Metadata>
+    <Duration>13.008979591836734</Duration>
+    <TotalBeats>31</TotalBeats>
+    <BeatsPerSecond>2.3829693775100402</BeatsPerSecond>
+  </Metadata>
+  <Beats>
+    <Beat index="0" time="0.166"/>
+    <Beat index="1" time="0.451"/>
+    <Beat index="2" time="0.746"/>
+    <Beat index="3" time="1.102"/>
+    <Beat index="4" time="1.475"/>
+    <Beat index="5" time="1.74"/>
+    <Beat index="6" time="2.068"/>
+    <Beat index="7" time="2.345"/>
+    <Beat index="8" time="2.713"/>
+    <Beat index="9" time="3.12"/>
+    <Beat index="10" time="3.462"/>
+    <Beat index="11" time="3.84"/>
+    <Beat index="12" time="4.226"/>
+    <Beat index="13" time="4.73"/>
+    <Beat index="14" time="5.212"/>
+    <Beat index="15" time="5.553"/>
+    <Beat index="16" time="6.068"/>
+    <Beat index="17" time="6.509"/>
+    <Beat index="18" time="7.01"/>
+    <Beat index="19" time="7.466"/>
+    <Beat index="20" time="7.954"/>
+    <Beat index="21" time="8.464"/>
+    <Beat index="22" time="8.961"/>
+    <Beat index="23" time="9.453"/>
+    <Beat index="24" time="9.926"/>
+    <Beat index="25" time="10.435"/>
+    <Beat index="26" time="10.907"/>
+    <Beat index="27" time="11.404"/>
+    <Beat index="28" time="11.899"/>
+    <Beat index="29" time="12.409"/>
+    <Beat index="30" time="12.912"/>
+  </Beats>
+</BeatData>

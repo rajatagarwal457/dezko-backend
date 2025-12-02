@@ -43,22 +43,41 @@ app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 # Available songs - these should have corresponding audio and beats.xml files
 AVAILABLE_SONGS = [
     {
-        "id": "dezko",
-        "name": "Dezko",
-        "artist": "Electronic Mix",
+        "vibe": "hardcore",
         "duration": "0:23",
-        "audioFile": "dezko.mp3",
-        "beatsFile": "beats.xml"
+        "audioFile": "hardcore.mp3",
+        "beatsFile": "hardcore.xml"
     },
-    # Add more songs here as you create them
-    # {
-    #     "id": "song2",
-    #     "name": "Another Song",
-    #     "artist": "Artist Name",
-    #     "duration": "4:12",
-    #     "audioFile": "song2.mp3",
-    #     "beatsFile": "beats_song2.xml"
-    # },
+    {
+        "vibe": "party",
+        "duration": "0:13",
+        "audioFile": "party.mp3",
+        "beatsFile": "party.xml"
+    },
+    {
+        "vibe": "cute",
+        "duration": "0:23",
+        "audioFile": "cute.mp3",
+        "beatsFile": "cute.xml"
+    },
+    {
+        "vibe": "nostalgia",
+        "duration": "0:14",
+        "audioFile": "nostalgia.mp3",
+        "beatsFile": "nostalgia.xml"
+    },
+    {
+        "vibe": "lovey-dovey",
+        "duration": "0:08",
+        "audioFile": "lovey-dovey.mp3",
+        "beatsFile": "lovey-dovey.xml"
+    },
+    {
+        "vibe": "2025-throwback",
+        "duration": "0:13",
+        "audioFile": "2025-throwback.mp3",
+        "beatsFile": "2025-throwback.xml"
+    },
 ]
 
 @app.get("/songs")
@@ -80,6 +99,7 @@ class GenerateRequest(BaseModel):
     song_id: Optional[str] = "dezko"
     sessionId: str
     fileNames: List[str]
+    vibe: str
 
 class UploadRequest(BaseModel):
     sessionId: str
@@ -105,20 +125,28 @@ async def get_upload_url(request: UploadRequest):
 @app.post("/generate")
 async def generate_video(request: GenerateRequest, background_tasks: BackgroundTasks):
     try:
-        # Find song by ID
-        song_id = request.song_id or "dezko"
-        song = next((s for s in AVAILABLE_SONGS if s["id"] == song_id), None)
-        if not song:
-            # Fallback to first song if specific id not found, or raise error
-            # For now, let's just default to the first one if "dezko" isn't found for some reason
-            if AVAILABLE_SONGS:
-                song = AVAILABLE_SONGS[0]
-            else:
-                raise HTTPException(status_code=400, detail=f"Song with id '{song_id}' not found and no default available")
-        
-        # Verify audio and beats files exist
-        audio_path = os.path.join(current_dir, song["audioFile"])
-        beats_path = os.path.join(current_dir, song["beatsFile"])
+        match(request.vibe):
+            case "hardcore":
+                audio_path = os.path.join(current_dir, "audio", "hardcore.mp3")
+                beats_path = os.path.join(current_dir, "beats", "hardcore.xml")
+            case "party":
+                audio_path = os.path.join(current_dir, "audio", "party.mp3")
+                beats_path = os.path.join(current_dir, "beats", "party.xml")
+            case "cute":
+                audio_path = os.path.join(current_dir, "audio", "cute.mp3")
+                beats_path = os.path.join(current_dir, "beats", "cute.xml")
+            case "nostalgia":
+                audio_path = os.path.join(current_dir, "audio", "nostalgia.mp3")
+                beats_path = os.path.join(current_dir, "beats", "nostalgia.xml")
+            case "lovey-dovey":
+                audio_path = os.path.join(current_dir, "audio", "lovey-dovey.mp3")
+                beats_path = os.path.join(current_dir, "beats", "lovey-dovey.xml")
+            case "2025-throwback":
+                audio_path = os.path.join(current_dir, "audio", "2025-throwback.mp3")
+                beats_path = os.path.join(current_dir, "beats", "2025-throwback.xml")
+            case _:
+                raise HTTPException(status_code=400, detail="Invalid vibe")
+
         
         # if not os.path.exists(audio_path):
         #     raise HTTPException(status_code=404, detail=f"Audio file '{song['audioFile']}' not found")
