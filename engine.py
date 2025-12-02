@@ -248,8 +248,9 @@ class BeatSyncEngine:
                 f.write(" ".join(cmd))
             
             os.chdir("./outputs")
-            os.rename(os.path.basename(output_file), os.path.basename(output_file) + "_temp.mp4")
-            cmd = ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_list_path, '-i', f"{os.path.basename(output_file)}_temp.mp4", '-i', '../Vireo.mp4', '-c', 'copy', f'{os.path.basename(output_file)}'] 
+            file_without_extension = os.path.splitext(os.path.basename(output_file))[0]
+            os.rename(os.path.basename(output_file), file_without_extension + "_temp.mp4")
+            cmd = ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_list_path, '-i', f"{file_without_extension}_temp.mp4", '-i', '../Vireo.mp4', '-c', 'copy', f'{file_without_extension}.mp4'] 
             subprocess.run(cmd, check=True)
             os.chdir("../")
             s3 = boto3.client('s3')
