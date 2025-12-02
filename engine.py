@@ -107,7 +107,7 @@ class BeatSyncEngine:
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
         os.makedirs(self.temp_dir)
-        output_file = output_file.replace(".mp4", "_temp.mp4")
+        output_file = output_file.replace(".mp4", "_t.mp4")
         try:
             print(f"Parsing beats from {self.beats_file}...")
             cuts, total_duration = self.parse_beats()
@@ -246,7 +246,7 @@ class BeatSyncEngine:
             # Save command for debugging
             with open(os.path.join(self.project_dir, 'render_cmd.txt'), 'w') as f:
                 f.write(" ".join(cmd))
-            final_output_file = output_file.replace("_temp.mp4", ".mp4")
+            final_output_file = output_file.replace("_t.mp4", ".mp4")
             # cmd = ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', f"{output_file}", '-i', 'Vireo.mp4', '-c', 'copy', final_output_file] 
             # subprocess.run(cmd, check=True)
             # os.chdir(self.project_dir)
