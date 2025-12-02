@@ -247,7 +247,7 @@ class BeatSyncEngine:
             with open(os.path.join(self.project_dir, 'render_cmd.txt'), 'w') as f:
                 f.write(" ".join(cmd))
             final_output_file = output_file.replace("_temp.mp4", ".mp4")
-            cmd = ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_list_path, '-i', f"{output_file}", '-i', 'Vireo.mp4', '-c', 'copy', final_output_file] 
+            cmd = ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', f"{output_file}", '-i', 'Vireo.mp4', '-c', 'copy', final_output_file] 
             subprocess.run(cmd, check=True)
             os.chdir(self.project_dir)
             s3 = boto3.client('s3')
