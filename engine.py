@@ -107,7 +107,7 @@ class BeatSyncEngine:
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
         os.makedirs(self.temp_dir)
-
+        output_file = str.replace(".mp4", "_temp.mp4")
         try:
             print(f"Parsing beats from {self.beats_file}...")
             cuts, total_duration = self.parse_beats()
@@ -246,15 +246,12 @@ class BeatSyncEngine:
             # Save command for debugging
             with open(os.path.join(self.project_dir, 'render_cmd.txt'), 'w') as f:
                 f.write(" ".join(cmd))
-            
-            os.chdir(os.path.dirname(output_file))
-            file_without_extension = os.path.splitext(os.path.basename(output_file))[0]
-            os.rename(os.path.basename(output_file), file_without_extension + "_temp.mp4")
-            cmd = ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_list_path, '-i', f"{file_without_extension}_temp.mp4", '-i', '../Vireo.mp4', '-c', 'copy', f'{file_without_extension}.mp4'] 
+            final_output_file = output_file.replace("_temp.mp4", ".mp4")
+            cmd = ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_list_path, '-i', f"{output_file}", '-i', 'Vireo.mp4', '-c', 'copy', final_output_file] 
             subprocess.run(cmd, check=True)
             os.chdir(self.project_dir)
             s3 = boto3.client('s3')
-            s3.upload_file(output_file, 'dezko', f"videos/{os.path.basename(output_file)}")
+            s3.upload_file(final_output_file, 'dezko', f"videos/{os.path.basename(final_output_file)}")
             print("Render complete!")
 
         finally:
