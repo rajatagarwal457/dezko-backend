@@ -183,7 +183,7 @@ async def generate_video(request: GenerateRequest, background_tasks: BackgroundT
         output_path = os.path.join(OUTPUT_DIR, output_filename)
         
         # Add render task to background
-        print(f"Queuing render to {output_path} with song {song['name']} for session {request.sessionId}")
+        # print(f"Queuing render to {output_path} with song {song['name']} for session {request.sessionId}")
         background_tasks.add_task(engine.render, session_dir, output_path)
         
         return {
