@@ -107,7 +107,7 @@ class BeatSyncEngine:
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
         os.makedirs(self.temp_dir)
-        output_file = str.replace(".mp4", "_temp.mp4")
+        output_file = output_file.replace(".mp4", "_temp.mp4")
         try:
             print(f"Parsing beats from {self.beats_file}...")
             cuts, total_duration = self.parse_beats()
