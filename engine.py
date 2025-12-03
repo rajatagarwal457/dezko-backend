@@ -9,10 +9,8 @@ import shutil
 import uuid
 import boto3
 from dotenv import load_dotenv
-from moviepy.video.io.VideoFileClip import VideoFileClip
-from moviepy.video.compositing.CompositeVideoClip import concatenate_videoclips
+
 load_dotenv()
-import time
 
 class BeatSyncEngine:
     def __init__(self, project_dir):
@@ -148,7 +146,6 @@ class BeatSyncEngine:
             current_frame = 0
             usage_map = {path: [] for path in normalized_assets}
             clip_files = [] # List of clip filenames for concat
-            previous_asset_path = None  # Track the previously used asset to avoid consecutive clips from same video
             
             print("Generating clips...")
             
@@ -166,11 +163,6 @@ class BeatSyncEngine:
                 
                 # Find an asset and time slot
                 candidate_paths = list(normalized_assets.keys())
-                
-                # Exclude the previously used asset to avoid back-to-back clips from same video
-                if previous_asset_path and previous_asset_path in candidate_paths and len(candidate_paths) > 1:
-                    candidate_paths.remove(previous_asset_path)
-                
                 random.shuffle(candidate_paths)
                 
                 selected_asset_path = None
@@ -218,9 +210,6 @@ class BeatSyncEngine:
                 # Record usage
                 usage_map[selected_asset_path].append((selected_start_time, selected_start_time + duration_sec))
                 
-                # Update previous_asset_path to track for next iteration
-                previous_asset_path = selected_asset_path
-                
                 # Create Clip
                 clip_name = f"clip_{i:04d}.mp4"
                 clip_path = os.path.join(self.temp_dir, clip_name)
@@ -257,18 +246,9 @@ class BeatSyncEngine:
             # Save command for debugging
             with open(os.path.join(self.project_dir, 'render_cmd.txt'), 'w') as f:
                 f.write(" ".join(cmd))
+            
+            
             subprocess.run(cmd, check=True)
-            if not os.path.exists(os.path.join(self.project_dir, 'temp_dir')):
-                os.mkdir(os.path.join(self.project_dir, 'temp_dir'))
-            time.sleep(5)
-            call = f"ffmpeg -i {output_file} -c copy -bsf:v h264_mp4toannexb {os.path.join(self.project_dir, 'render.ts')}"
-            subprocess.run(call, check=True)
-            #create list.txt
-            os.remove(os.path.join(self.project_dir, 'temp_dir', 'list.txt'))
-            with open(os.path.join(self.project_dir, 'temp_dir', 'list.txt'), 'w') as f:
-                f.write(f"file '{os.path.join(self.project_dir, 'render.ts')}'\nfile '{os.path.join(self.project_dir, 'vireo.ts')}'\n")
-            call = f"ffmpeg -f concat -safe 0 -i {os.path.join(self.project_dir, 'temp_dir', 'list.txt')} -c copy -bsf:a aac_adtstoasc {output_file}"
-            subprocess.run(call, check=True)
             s3 = boto3.client('s3')
             s3.upload_file(output_file, 'dezko', f"videos/{os.path.basename(output_file)}")
             print("Render complete!")
