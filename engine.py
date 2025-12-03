@@ -275,7 +275,11 @@ class BeatSyncEngine:
                     '-f', 'concat',
                     '-safe', '0',
                     '-i', concat_final_path,
-                    '-c', 'copy',
+                    '-c:v', 'h264_nvenc',  # Re-encode with GPU acceleration
+                    '-preset', 'p4',
+                    '-cq', '19',
+                    '-c:a', 'aac',
+                    '-b:a', '192k',
                     temp_output
                 ]
                 subprocess.run(concat_cmd, check=True)
