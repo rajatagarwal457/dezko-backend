@@ -271,17 +271,18 @@ class BeatSyncEngine:
                 
                 # Concatenate the rendered video with vireo.mp4
                 concat_cmd = [
-                    'ffmpeg', '-y',
-                    '-f', 'concat',
-                    '-safe', '0',
-                    '-i', concat_final_path,
-                    '-c:v', 'h264_nvenc',  # Re-encode with GPU acceleration
-                    '-preset', 'p4',
-                    '-cq', '19',
-                    '-c:a', 'aac',
-                    '-b:a', '192k',
-                    temp_output
-                ]
+                     'ffmpeg', '-y',
+                     '-fflags', '+genpts',  # Regenerate presentation timestamps
+                     '-f', 'concat',
+                     '-safe', '0',
+                     '-i', concat_final_path,
+                     '-c:v', 'h264_nvenc',
+                     '-preset', 'p4',
+                     '-cq', '19',
+    '-c:a', 'aac',
+    '-b:a', '192k',
+    temp_output
+]
                 subprocess.run(concat_cmd, check=True)
                 
                 # Replace original with concatenated version
