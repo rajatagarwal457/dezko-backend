@@ -257,9 +257,9 @@ class BeatSyncEngine:
             with open(os.path.join(self.project_dir, 'render_cmd.txt'), 'w') as f:
                 f.write(" ".join(cmd))
             subprocess.run(cmd, check=True)
-            call = f"ffmpeg -i {output_file} -c copy -bsf:v h264_mp4toannexb {os.path.join(self.temp_dir, 'render.ts')}"
-            subprocess.run(call, check=True)
             call = f"ffmpeg -i {os.path.join(self.project_dir, 'Vireo.mp4')} -c copy -bsf:v h264_mp4toannexb {os.path.join(self.temp_dir, 'vireo.ts')}"
+            subprocess.run(call, check=True)
+            call = f"ffmpeg -i {output_file} -c copy -bsf:v h264_mp4toannexb {os.path.join(self.temp_dir, 'render.ts')}"
             subprocess.run(call, check=True)
             #create list.txt
             os.remove(os.path.join(self.temp_dir, 'list.txt'))
