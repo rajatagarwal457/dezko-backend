@@ -255,9 +255,37 @@ class BeatSyncEngine:
             # Save command for debugging
             with open(os.path.join(self.project_dir, 'render_cmd.txt'), 'w') as f:
                 f.write(" ".join(cmd))
-            
-            
             subprocess.run(cmd, check=True)
+                        
+            # Append vireo.mp4 to the end of the rendered video
+            vireo_path = os.path.join(self.project_dir, 'vireo.mp4')
+            if os.path.exists(vireo_path):
+                print("Appending vireo.mp4 to the end of the video...")
+                temp_output = output_file.replace('.mp4', '_temp.mp4')
+                
+                # Create concat list
+                concat_final_path = os.path.join(self.temp_dir, 'final_concat.txt')
+                with open(concat_final_path, 'w') as f:
+                    f.write(f"file '{output_file.replace(chr(92), '/')}'\n")
+                    f.write(f"file '{vireo_path.replace(chr(92), '/')}'\n")
+                
+                # Concatenate the rendered video with vireo.mp4
+                concat_cmd = [
+                    'ffmpeg', '-y',
+                    '-f', 'concat',
+                    '-safe', '0',
+                    '-i', concat_final_path,
+                    '-c', 'copy',
+                    temp_output
+                ]
+                subprocess.run(concat_cmd, check=True)
+                
+                # Replace original with concatenated version
+                os.remove(output_file)
+                os.rename(temp_output, output_file)
+                print("Successfully appended vireo.mp4!")
+            else:
+                print(f"Warning: vireo.mp4 not found at {vireo_path}, skipping append.")
             s3 = boto3.client('s3')
             s3.upload_file(output_file, 'dezko', f"videos/{os.path.basename(output_file)}")
             print("Render complete!")
