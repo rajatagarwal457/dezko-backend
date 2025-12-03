@@ -274,11 +274,12 @@ class BeatSyncEngine:
                      'ffmpeg', '-y',
                      '-i', output_file,  # Regenerate presentation timestamps
                      '-i', vireo_path,
-                     '-filter-complex', '[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[outv][outa]',
+                     '-filter_complex', '[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[outv][outa]',
                      '-map', '[outv]',
                      '-map', '[outa]',
                      '-c:v', 'h264_nvenc',
                      '-c:a', 'aac',
+                     '-strict', 'experimental',
                      temp_output
                 ]
                 subprocess.run(concat_cmd, check=True)
