@@ -257,15 +257,14 @@ class BeatSyncEngine:
             with open(os.path.join(self.project_dir, 'render_cmd.txt'), 'w') as f:
                 f.write(" ".join(cmd))
             subprocess.run(cmd, check=True)
-            os.mkdir(os.path.join(self.project_dir, 'temp_dir'))
-            call = f"ffmpeg -i {os.path.join(self.project_dir, 'Vireo.mp4')} -c copy -bsf:v h264_mp4toannexb {os.path.join(self.project_dir, 'temp_dir', 'vireo.ts')}"
-            subprocess.run(call, check=True)
+            if not os.path.exists(os.path.join(self.project_dir, 'temp_dir')):
+                os.mkdir(os.path.join(self.project_dir, 'temp_dir'))
             call = f"ffmpeg -i {output_file} -c copy -bsf:v h264_mp4toannexb {os.path.join(self.project_dir, 'temp_dir', 'render.ts')}"
             subprocess.run(call, check=True)
             #create list.txt
             os.remove(os.path.join(self.project_dir, 'temp_dir', 'list.txt'))
             with open(os.path.join(self.project_dir, 'temp_dir', 'list.txt'), 'w') as f:
-                f.write(f"file '{os.path.join(self.project_dir, 'temp_dir', 'render.ts')}'\nfile '{os.path.join(self.project_dir, 'temp_dir', 'vireo.ts')}'\n")
+                f.write(f"file '{os.path.join(self.project_dir, 'temp_dir', 'render.ts')}'\nfile '{os.path.join(self.project_dir, 'vireo.ts')}'\n")
             call = f"ffmpeg -f concat -safe 0 -i {os.path.join(self.project_dir, 'temp_dir', 'list.txt')} -c copy -bsf:a aac_adtstoasc {output_file}"
             subprocess.run(call, check=True)
             s3 = boto3.client('s3')
