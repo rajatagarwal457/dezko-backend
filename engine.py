@@ -275,12 +275,12 @@ class BeatSyncEngine:
     
             final_clip = concatenate_videoclips(resized_clips, method="compose")
             # write the output video file
-            final_clip.write_videofile(os.path.join(self.temp_dir, 'final_render.mp4'))
+            final_clip.write_videofile(os.path.join(self.temp_dir, 'final_render.mp4'), codec='h264_nvenc')
             os.rename(os.path.join(self.temp_dir, 'final_render.mp4'), output_file)
             s3 = boto3.client('s3')
             s3.upload_file(output_file, 'dezko', f"videos/{os.path.basename(output_file)}")
             print("Render complete!")
-
+            
         finally:
             # Cleanup
             if os.path.exists(self.temp_dir):
