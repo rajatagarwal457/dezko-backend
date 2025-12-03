@@ -9,8 +9,9 @@ import shutil
 import uuid
 import boto3
 from dotenv import load_dotenv
-from moviepy.editor import VideoFileClip, concatenate_videoclips
-
+# from moviepy.editor import VideoFileClip, concatenate_videoclips
+from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.video.compositing.CompositeVideoClip import concatenate_videoclips
 load_dotenv()
 
 class BeatSyncEngine:
