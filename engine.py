@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from moviepy.video.compositing.CompositeVideoClip import concatenate_videoclips
 load_dotenv()
+import threading
 
 class BeatSyncEngine:
     def __init__(self, project_dir):
