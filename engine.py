@@ -257,26 +257,16 @@ class BeatSyncEngine:
             with open(os.path.join(self.project_dir, 'render_cmd.txt'), 'w') as f:
                 f.write(" ".join(cmd))
             subprocess.run(cmd, check=True)
-            clip1 = VideoFileClip(output_file)
-            clip2 = VideoFileClip("Vireo.mp4")
-            clips = [clip1, clip2]
-            target_width = clips[0].w
-            target_height = clips[0].h
-    
-            # Resize all clips to match the first clip's dimensions
-            resized_clips = []
-            for clip in clips:
-                if clip.w != target_width or clip.h != target_height:
-                    # Resize to target dimensions
-                    resized_clip = clip.resized(width=target_width, height=target_height)
-                    resized_clips.append(resized_clip)
-                else:
-                    resized_clips.append(clip)
-    
-            final_clip = concatenate_videoclips(resized_clips, method="compose")
-            # write the output video file
-            final_clip.write_videofile(os.path.join(self.temp_dir, 'final_render.mp4'), codec='h264_nvenc', audio_codec='aac')
-            os.rename(os.path.join(self.temp_dir, 'final_render.mp4'), output_file)
+            call = f"ffmpeg -i {output_file} -c copy -bsf:v h264_mp4toannexb {os.path.join(self.temp_dir, 'render.ts')}"
+            subprocess.run(call, check=True)
+            call = f"ffmpeg -i {os.path.join(self.project_dir, 'Vireo.mp4')} -c copy -bsf:v h264_mp4toannexb {os.path.join(self.temp_dir, 'vireo.ts')}"
+            subprocess.run(call, check=True)
+            #create list.txt
+            os.remove(os.path.join(self.temp_dir, 'list.txt'))
+            with open(os.path.join(self.temp_dir, 'list.txt'), 'w') as f:
+                f.write(f"file '{os.path.join(self.temp_dir, 'render.ts')}'\nfile '{os.path.join(self.temp_dir, 'vireo.ts')}'\n")
+            call = f"ffmpeg -f concat -safe 0 -i {os.path.join(self.temp_dir, 'list.txt')} -c copy -bsf:a aac_adtstoasc {output_file}"
+            subprocess.run(call, check=True)
             s3 = boto3.client('s3')
             s3.upload_file(output_file, 'dezko', f"videos/{os.path.basename(output_file)}")
             print("Render complete!")
