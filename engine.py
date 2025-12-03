@@ -259,6 +259,7 @@ class BeatSyncEngine:
             subprocess.run(cmd, check=True)
             if not os.path.exists(os.path.join(self.project_dir, 'temp_dir')):
                 os.mkdir(os.path.join(self.project_dir, 'temp_dir'))
+            thread.sleep(5)
             call = f"ffmpeg -i {output_file} -c copy -bsf:v h264_mp4toannexb {os.path.join(self.project_dir, 'render.ts')}"
             subprocess.run(call, check=True)
             #create list.txt
