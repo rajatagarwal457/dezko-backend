@@ -146,6 +146,7 @@ class BeatSyncEngine:
             current_frame = 0
             usage_map = {path: [] for path in normalized_assets}
             clip_files = [] # List of clip filenames for concat
+            previous_asset_path = None  # Track the previously used asset to avoid consecutive clips from same video
             
             print("Generating clips...")
             
@@ -163,6 +164,11 @@ class BeatSyncEngine:
                 
                 # Find an asset and time slot
                 candidate_paths = list(normalized_assets.keys())
+                
+                # Exclude the previously used asset to avoid back-to-back clips from same video
+                if previous_asset_path and previous_asset_path in candidate_paths and len(candidate_paths) > 1:
+                    candidate_paths.remove(previous_asset_path)
+                
                 random.shuffle(candidate_paths)
                 
                 selected_asset_path = None
@@ -209,6 +215,9 @@ class BeatSyncEngine:
                 
                 # Record usage
                 usage_map[selected_asset_path].append((selected_start_time, selected_start_time + duration_sec))
+                
+                # Update previous_asset_path to track for next iteration
+                previous_asset_path = selected_asset_path
                 
                 # Create Clip
                 clip_name = f"clip_{i:04d}.mp4"
