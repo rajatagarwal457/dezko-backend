@@ -24,7 +24,7 @@ from engine import BeatSyncEngine
 app = FastAPI()
 
 logfire.configure()
-logfire.instrument_fastapi(app)
+logfire.instrument_fastapi(app, excluded_urls="/health")
 
 current_dir = os.getcwd()
 # CORS
