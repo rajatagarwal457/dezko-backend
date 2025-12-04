@@ -19,7 +19,7 @@ class BeatSyncEngine:
         self.audio_file = os.path.join(project_dir, 'dezko.mp3')
         self.output_width = 1080
         self.output_height = 1920
-        self.temp_dir = os.path.join(project_dir, 'temp_render')
+        self.temp_dir = os.path.join(project_dir, 'temp_render', str(uuid.uuid4()))
         
     def parse_beats(self):
         """Parse beats.xml to get list of (start_time, duration) for each cut."""
@@ -104,6 +104,7 @@ class BeatSyncEngine:
 
     def render(self, assets_dir, output_file):
         # Create temp dir
+        self.temp_dir
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
         os.makedirs(self.temp_dir)
