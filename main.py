@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 import boto3
 import requests
 from botocore.config import Config
+import logfire
 
 load_dotenv()
 
@@ -21,6 +22,10 @@ load_dotenv()
 from engine import BeatSyncEngine
 
 app = FastAPI()
+
+logfire.configure()
+logfire.instrument_fastapi(app)
+
 current_dir = os.getcwd()
 # CORS
 app.add_middleware(
