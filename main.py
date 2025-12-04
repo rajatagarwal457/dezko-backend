@@ -23,7 +23,11 @@ from engine import BeatSyncEngine
 
 app = FastAPI()
 
-logfire.configure()
+def scrubbing_callback(m: logfire.ScrubMatch):
+    if m.path == ('attributes', 'fastapi.arguments.values', 'request', 'sessionId'):
+        return m.value
+
+logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
 logfire.instrument_fastapi(app, excluded_urls="/health")
 
 current_dir = os.getcwd()
