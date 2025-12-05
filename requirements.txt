@@ -3,3 +3,7 @@ uvicorn
 python-multipart
 boto3
 python-dotenv
+razorpay
+sqlalchemy
+requests
+logfire[fastapi]

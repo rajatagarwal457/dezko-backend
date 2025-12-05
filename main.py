@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -9,12 +9,19 @@ import sys
 import uuid
 import glob
 import datetime
-from typing import List
+from datetime import datetime as dt
+from typing import List, Optional
 from dotenv import load_dotenv
 import boto3
 import requests
 from botocore.config import Config
 import logfire
+import razorpay
+import hmac
+import hashlib
+from sqlalchemy.orm import Session
+from database import engine, get_db, Base
+from models import UserQuota
 
 load_dotenv()
 
@@ -22,6 +29,14 @@ load_dotenv()
 from engine import BeatSyncEngine
 
 app = FastAPI()
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
+
+# Initialize Razorpay client
+razorpay_client = razorpay.Client(
+    auth=(os.getenv("RAZORPAY_KEY_ID"), os.getenv("RAZORPAY_KEY_SECRET"))
+)
 
 def scrubbing_callback(m: logfire.ScrubMatch):
     if m.path == ('attributes', 'fastapi.arguments.values', 'request', 'sessionId'):
@@ -237,7 +252,148 @@ async def log_error(error_log: ErrorLog):
         print(f"Failed to log error: {e}")
         raise HTTPException(status_code=500, detail="Failed to log error")
 
+
+# ============================================
+# Razorpay Payment & User Quota Endpoints
+# ============================================
+
+# Request/Response models for Razorpay
+class CreateOrderRequest(BaseModel):
+    userId: str
+    amount: int  # in paise (100 paise = ₹1)
+    currency: str = "INR"
+
+
+class CreateOrderResponse(BaseModel):
+    id: str
+    amount: int
+    currency: str
+
+
+class VerifyPaymentRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    userId: str
+
+
+class VerifyPaymentResponse(BaseModel):
+    success: bool
+    isPremium: bool
+    message: str = ""
+
+
+class UserQuotaResponse(BaseModel):
+    generationCount: int
+    isPremium: bool
+
+
+class SyncQuotaRequest(BaseModel):
+    userId: str
+    generationCount: int
+
+
+@app.post("/create-order", response_model=CreateOrderResponse)
+async def create_order(request: CreateOrderRequest):
+    """Create a Razorpay order for payment"""
+    try:
+        order_data = {
+            "amount": request.amount,
+            "currency": request.currency,
+            "receipt": f"receipt_{request.userId}",
+            "notes": {
+                "userId": request.userId
+            }
+        }
+        order = razorpay_client.order.create(data=order_data)
+        return CreateOrderResponse(
+            id=order["id"],
+            amount=order["amount"],
+            currency=order["currency"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/verify-payment", response_model=VerifyPaymentResponse)
+async def verify_payment(request: VerifyPaymentRequest, db: Session = Depends(get_db)):
+    """Verify Razorpay payment signature and upgrade user to premium"""
+    try:
+        # Verify signature
+        key_secret = os.getenv("RAZORPAY_KEY_SECRET")
+        msg = f"{request.razorpay_order_id}|{request.razorpay_payment_id}"
+        generated_signature = hmac.new(
+            key_secret.encode(),
+            msg.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        if generated_signature != request.razorpay_signature:
+            return VerifyPaymentResponse(
+                success=False,
+                isPremium=False,
+                message="Invalid payment signature"
+            )
+
+        # Update user to premium in database
+        user_quota = db.query(UserQuota).filter(UserQuota.user_id == request.userId).first()
+        if user_quota:
+            user_quota.is_premium = True
+            user_quota.premium_since = dt.utcnow()
+        else:
+            user_quota = UserQuota(
+                user_id=request.userId,
+                generation_count=0,
+                is_premium=True,
+                premium_since=dt.utcnow()
+            )
+            db.add(user_quota)
+
+        db.commit()
+
+        return VerifyPaymentResponse(
+            success=True,
+            isPremium=True,
+            message="Payment verified successfully"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/user-quota/{user_id}", response_model=UserQuotaResponse)
+async def get_user_quota(user_id: str, db: Session = Depends(get_db)):
+    """Get user's generation quota and premium status"""
+    user_quota = db.query(UserQuota).filter(UserQuota.user_id == user_id).first()
+
+    if user_quota:
+        return UserQuotaResponse(
+            generationCount=user_quota.generation_count,
+            isPremium=user_quota.is_premium
+        )
+
+    return UserQuotaResponse(generationCount=0, isPremium=False)
+
+
+@app.post("/sync-quota")
+async def sync_quota(request: SyncQuotaRequest, db: Session = Depends(get_db)):
+    """Sync generation quota from frontend"""
+    user_quota = db.query(UserQuota).filter(UserQuota.user_id == request.userId).first()
+
+    if user_quota:
+        # Only update if incoming count is higher (prevent abuse)
+        if request.generationCount > user_quota.generation_count:
+            user_quota.generation_count = request.generationCount
+    else:
+        user_quota = UserQuota(
+            user_id=request.userId,
+            generation_count=request.generationCount,
+            is_premium=False
+        )
+        db.add(user_quota)
+
+    db.commit()
+    return {"message": "Quota synced"}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
