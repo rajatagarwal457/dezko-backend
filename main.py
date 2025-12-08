@@ -190,15 +190,15 @@ async def generate_video(request: GenerateRequest, background_tasks: BackgroundT
                 print("Downloading", file)
                 url = f"https://dsfvy2cdoas23.cloudfront.net/uploads/{request.sessionId}/{file}"
                 print("Downloading from", url)
+                session_dir = os.path.join(UPLOAD_DIR, request.sessionId)
                 response = requests.get(url)
-                with open(os.path.join(UPLOAD_DIR, upload_path, file), "wb") as f:
+                with open(os.path.join(session_dir, file), "wb") as f:
                     f.write(response.content)
                     print("Downloaded", file)
             except Exception as e:
                 print("Failed to download", file, e)
 
         # Verify session directory exists
-        session_dir = os.path.join(UPLOAD_DIR, request.sessionId)
         if not os.path.exists(session_dir):
             raise HTTPException(status_code=404, detail="Session not found or expired")
 
