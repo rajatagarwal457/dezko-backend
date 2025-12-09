@@ -149,6 +149,9 @@ class BeatSyncEngine:
             clip_files = [] # List of clip filenames for concat
             previous_asset_path = None  # Track the previously used asset to avoid consecutive clips from same video
             
+            # Track videos that haven't been used yet to ensure at least one clip from each
+            unused_videos = set(normalized_assets.keys())
+            
             print("Generating clips...")
             
             for i, cut in enumerate(cuts):
@@ -164,7 +167,11 @@ class BeatSyncEngine:
                 duration_sec = duration_frames / fps
                 
                 # Find an asset and time slot
-                candidate_paths = list(normalized_assets.keys())
+                # Prioritize unused videos to ensure at least one clip from each
+                if unused_videos:
+                    candidate_paths = list(unused_videos)
+                else:
+                    candidate_paths = list(normalized_assets.keys())
                 
                 # Exclude the previously used asset to avoid back-to-back clips from same video
                 if previous_asset_path and previous_asset_path in candidate_paths and len(candidate_paths) > 1:
@@ -216,6 +223,9 @@ class BeatSyncEngine:
                 
                 # Record usage
                 usage_map[selected_asset_path].append((selected_start_time, selected_start_time + duration_sec))
+                
+                # Mark this video as used (remove from unused set)
+                unused_videos.discard(selected_asset_path)
                 
                 # Update previous_asset_path to track for next iteration
                 previous_asset_path = selected_asset_path
